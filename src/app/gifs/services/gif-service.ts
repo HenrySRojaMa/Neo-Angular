@@ -20,18 +20,33 @@ export class GifService {
   trendinGifs = signal<Gif[]>([]);
   searchHistory = signal<Record<string, Gif[]>>(loadFromLocalStorage());
   searchHistoryKeys = computed(() => Object.keys(this.searchHistory()));
-  trendinGifsLoading = signal(true);
+  trendinGifsLoading = signal(false);
+  trendinPage = signal(0);
+  gifsGroup = computed<Gif[][]>(() => {
+    const groups = [];
+    for (let i = 0; i < this.trendinGifs().length; i += 3) {
+      groups.push(this.trendinGifs().slice(i, i + 3));
+    }
+    return groups;
+  });
+
+  constructor(){
+    this.loadTrendingGifs();
+  }
 
   loadTrendingGifs() {
-    this.trendinGifs.set([]);
+    if (this.trendinGifsLoading()) return;
+    this.trendinGifsLoading.set(true);
     this.http.get<GiphyRps>(`${this.envs.giphyURL}/gifs/trending`, {
       params: {
         api_key: this.envs.giphyApiKey,
-        limit: 18
+        limit: 18,
+        offset: this.trendinPage() * 18
       }
     }).subscribe((resp) => {
       const gifs = GifMapper.mapGiphyItemsToGifArray(resp.data);
-      this.trendinGifs.set(gifs);
+      this.trendinGifs.update(x => [...x, ...gifs]);
+      this.trendinPage.update(x => x += 1);
       this.trendinGifsLoading.set(false);
     });
   }
